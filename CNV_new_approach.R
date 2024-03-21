@@ -3,7 +3,7 @@ library(ggpubr)
 library(dplyr)
 
 
-data <- read.table("CNV_runs_sample_coverage/BOH22_NextSeq01_amplicon_coverage_DD2_PM2-2.txt", header = T)
+data <- read.table("CNV_runs_sample_coverage/REACT2_NextSeq01_amplicon_coverage_DD2.txt", header = T)
 data <- data[,-3:-4]
 
 #remove neg controls and undetermined
@@ -54,7 +54,7 @@ for (sample_id in unique_samples) {
 }
 
 # Print the data frame with sample slopes
-hist(sample_slopes$Slope, breaks = 100)
+hist(sample_slopes$Slope, breaks = 150)
 
 # Calculate quantiles
 q_up <- quantile(sample_slopes$Slope, probs = 0.99) #samples with many amplicons at 0
@@ -97,9 +97,7 @@ controls_nozero <- controls[controls$NORM_OutputPostprocessing != 0, ]
 #calculate thresholds from single-copy controls
 thresholds_controls<- controls_nozero %>% 
   group_by(SampleID) %>%
-  summarize(q_up = quantile(NORM_OutputPostprocessing,0.99),
-            q_down = quantile(NORM_OutputPostprocessing,0.025),
-            max = max(NORM_OutputPostprocessing),
+  summarize(max = max(NORM_OutputPostprocessing),
             min = min(NORM_OutputPostprocessing))
 
 
@@ -125,13 +123,11 @@ thresholds_controls<- controls_nozero %>%
 # merged_table$fold_change_probs<- merged_table$NORM_OutputPostprocessing.x / merged_table$NORM_OutputPostprocessing.y
 ##############################################################
 
+
 # VISUALIZATION #
 
 # Set thresholds
-up_threshold_q <- mean(thresholds_controls$q_up)
-down_threshold_q <- mean(thresholds_controls$q_down)
 up_threshold <- max(thresholds_controls$max)
-down_threshold <- min(thresholds_controls$min)
 up_threshold_mean <- mean(thresholds_controls$max)
 
 
@@ -159,6 +155,8 @@ for (xsample in unique_samples) {
 # Arrange plots in a grid
 grid <- ggarrange(plotlist = plot_list, nrow = round(sqrt(length(unique_samples)), ), ncol = round(sqrt(length(unique_samples)), ))
 ggsave("grid_of_plots.pdf", grid, width = 60, height = 50, dpi = 300, limitsize = FALSE)
+#combined_plot <- cowplot::plot_grid(plotlist = grid)
+#ggsave("grid_of_plots.pdf", plot = combined_plot, width = 60, height = 50, dpi = 300, limitsize = FALSE)
 
 
 # ACTUAL RESULTS #
@@ -175,6 +173,8 @@ results <- data_norm[!is.na(data_norm$loi) &
                        data_norm$slope == "good",]
 
 print(paste0("There are ", length(unique(results$SampleID)), " samples with good QC that have CNV for loci of interest out of ", length(unique_samples)))
+
+results
 
 write.csv(results, "CNV_results.csv", row.names = F)
 
