@@ -4,7 +4,7 @@ library(dplyr)
 library(cowplot)
 
 
-data <- read.table("CNV_runs_sample_coverage/HFS_NextSeq01_amplicon_coverage_DD2.txt", header = T)
+data <- read.table("CNV_runs_sample_coverage/REACT2_NextSeq01_amplicon_coverage_DD2.txt", header = T)
 data <- data[,-3:-4]
 
 #remove neg controls and undetermined
@@ -22,7 +22,7 @@ data_filtered <- data[!data$SampleID %in% samples_below_median_100, ]
 
 
 #exclude one HRP3 amplicon wat too outlierish:
-data_filtered <- data_filtered[!data_filtered$Locus =="Pf3D7_13_v3-2816310-2816554-1B",]
+#data_filtered <- data_filtered[!data_filtered$Locus =="Pf3D7_13_v3-2816310-2816554-1B",]
 
 
 # calculate proportions of amplicons for each sample
@@ -59,18 +59,15 @@ for (sample_id in unique_samples) {
   sample_slopes <- rbind(sample_slopes, data.frame(SampleID = sample_id, Slope = slope))
 }
 
-# Print the data frame with sample slopes
 hist(sample_slopes$Slope, breaks = 150)
 
 # Calculate quantiles
-q_up <- quantile(sample_slopes$Slope, probs = 0.99) #samples with many amplicons at 0
+q_up <- quantile(sample_slopes$Slope, probs = 0.99) #samples with many amplicons at 0 (MAYBE HERE'S NO NEED TO REMOVE THESE?)
 q_down <- quantile(sample_slopes$Slope, probs = 0.01) #samples with overall low yield or 
 
-sd(sample_slopes$Slope,)
-
 # Add lines for quantiles 99 and 1
-abline(v = q_down, col = "blue", lty = 2) 
-abline(v = q_up, col = "red", lty = 2) 
+abline(v = q_down, col = "red", lty = 2) 
+abline(v = q_up, col = "blue", lty = 2) 
 
 sample_slopes <- sample_slopes[order(sample_slopes$Slope), ]
 
@@ -98,6 +95,7 @@ for (i in seq_len(nrow(data_norm))) {
 data_norm$loi <- loi
 
 
+
 #extract single-copy controls
 controls <- data_norm[!grepl("(?i)Dd2|PM|HB3", data_norm$SampleID) & grepl("(?i)3D7", data_norm$SampleID), ]
 controls_nozero <- controls[controls$NORM_OutputPostprocessing != 0, ]
@@ -108,9 +106,20 @@ thresholds_controls<- controls_nozero %>%
   summarize(max = max(NORM_OutputPostprocessing),
             min = min(NORM_OutputPostprocessing))
 
+# top 5 most abundant amplicons in controls
+ranking_amps <- controls_nozero %>%
+  group_by(Locus) %>%
+  summarize(mean_NORM_OutputPostprocessing = mean(NORM_OutputPostprocessing))
+
+ranking_amps <- ranking_amps%>%
+  arrange(desc(mean_NORM_OutputPostprocessing))
+
+# remove top 5 mos abundant amplicons from data_norm (TO AVOID FALSE POSITIVES)
+data_norm <- data_norm[!data_norm$Locus %in% ranking_amps$Locus[1:5],]
+
 
 # ##############################################################
-#find best control (most reads total)
+# #find best control (most reads total)
 # controls_raw <- data[!grepl("(?i)Dd2|PM|HB3", data$SampleID) & grepl("(?i)3D7", data$SampleID), ]
 # 
 # total_read_counts <- controls_raw %>%
@@ -189,6 +198,7 @@ write.csv(results, "CNV_results.csv", row.names = F)
 
 # NOTES
 #   one hrp2 amplicon often comes up as cnv whe it's probably not. remove it?
+# esclude consistently high amplicons across samples from the run to avoid false positives? (does it affect true positives? how much?)
 # TEST THIS METHOD WITH ALL CONTROLS FROM ALL RUNS
 # BENCHMARK AGAINST estCNV
 # ASSESS FALSE POSITIVES USING quantile99 vs max
