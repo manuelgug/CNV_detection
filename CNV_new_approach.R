@@ -4,7 +4,7 @@ library(dplyr)
 library(cowplot)
 
 
-data <- read.table("CNV_runs_sample_coverage/REACT2_NextSeq01_amplicon_coverage_DD2.txt", header = T)
+data <- read.table("CNV_runs_sample_coverage/MULB_NextSeq01_amplicon_coverage_DD2.txt", header = T)
 data <- data[,-3:-4]
 
 #remove neg controls and undetermined
@@ -20,9 +20,6 @@ samples_below_median_100 <- co[co$median_read_count < 100,]$SampleID
 
 data_filtered <- data[!data$SampleID %in% samples_below_median_100, ]
 
-
-#exclude one HRP3 amplicon wat too outlierish:
-#data_filtered <- data_filtered[!data_filtered$Locus =="Pf3D7_13_v3-2816310-2816554-1B",]
 
 
 # calculate proportions of amplicons for each sample
@@ -100,12 +97,6 @@ data_norm$loi <- loi
 controls <- data_norm[!grepl("(?i)Dd2|PM|HB3", data_norm$SampleID) & grepl("(?i)3D7", data_norm$SampleID), ]
 controls_nozero <- controls[controls$NORM_OutputPostprocessing != 0, ]
 
-#calculate thresholds from single-copy controls
-thresholds_controls<- controls_nozero %>% 
-  group_by(SampleID) %>%
-  summarize(max = max(NORM_OutputPostprocessing),
-            min = min(NORM_OutputPostprocessing))
-
 # top 5 most abundant amplicons in controls
 ranking_amps <- controls_nozero %>%
   group_by(Locus) %>%
@@ -114,8 +105,28 @@ ranking_amps <- controls_nozero %>%
 ranking_amps <- ranking_amps%>%
   arrange(desc(mean_NORM_OutputPostprocessing))
 
-# remove top 5 mos abundant amplicons from data_norm (TO AVOID FALSE POSITIVES)
+# remove top 3 most abundant amplicons from controls_nozero (TO AVOID FALSE POSITIVES)
+controls_nozero <- controls_nozero[!controls_nozero$Locus %in% ranking_amps$Locus[1:5],]
+
+#exclude some HRP3 and PM2 ampliconS that too outlierish:
+controls_nozero <- controls_nozero[!controls_nozero$Locus %in% c("Pf3D7_13_v3-2816310-2816554-1B","Pf3D7_13_v3-2814583-2814832-2", "Pf3D7_14_v3-294506-294753-1B"),]
+
+#calculate thresholds from single-copy controls
+thresholds_controls<- controls_nozero %>% 
+  group_by(SampleID) %>%
+  summarize(max = max(NORM_OutputPostprocessing),
+            min = min(NORM_OutputPostprocessing))
+
+
+
+# remove top 5 most abundant amplicons from data_norm (TO AVOID FALSE POSITIVES)
 data_norm <- data_norm[!data_norm$Locus %in% ranking_amps$Locus[1:5],]
+
+#exclude some HRP3 and PM2 ampliconS that too outlierish:
+data_norm <- data_norm[!data_norm$Locus %in% c("Pf3D7_13_v3-2816310-2816554-1B","Pf3D7_13_v3-2814583-2814832-2", "Pf3D7_14_v3-294506-294753-1B"),]
+
+
+#data_norm[data_norm$SampleID == "N1979742_7_S187" & !is.na(data_norm$loi) ,]
 
 
 # ##############################################################
@@ -144,7 +155,7 @@ data_norm <- data_norm[!data_norm$Locus %in% ranking_amps$Locus[1:5],]
 # VISUALIZATION #
 
 # Set thresholds
-up_threshold <- max(thresholds_controls$max)
+#up_threshold <- max(thresholds_controls$max)
 up_threshold_mean <- mean(thresholds_controls$max)
 
 
@@ -170,7 +181,7 @@ for (xsample in unique_samples) {
 }
 
 # Assuming 'plot_list' contains a list of ggplot objects
-combined_plot <- plot_grid(plotlist = plot_list, nrow = round(sqrt(length(unique_samples))), ncol = round(sqrt(length(unique_samples))))
+combined_plot <- plot_grid(plotlist = plot_list, nrow = ceiling(sqrt(length(unique_samples))), ncol = ceiling(sqrt(length(unique_samples))))
 ggsave("grid_of_plots.pdf", plot = combined_plot, width = 60, height = 50, dpi = 300, limitsize = FALSE)
 
 # ACTUAL RESULTS #
