@@ -3,7 +3,7 @@ library(ggpubr)
 library(dplyr)
 
 
-data <- read.table("CNV_runs_sample_coverage/REACT2_NextSeq01_amplicon_coverage_DD2.txt", header = T)
+data <- read.table("CNV_runs_sample_coverage/230623_M07977_0012_000000000-KJGHP_amplicon_coverage_DD2.txt", header = T)
 data <- data[,-3:-4]
 
 #remove neg controls and undetermined
@@ -18,12 +18,54 @@ co <- data %>%
 samples_below_median_100 <- co[co$median_read_count < 100,]$SampleID 
 
 
+
 # calculate proportions of amplicons for each sample
 data_norm <- data %>% 
   group_by(SampleID) %>%
   summarize(NORM_OutputPostprocessing = OutputPostprocessing / sum(OutputPostprocessing))
 
 data_norm <- as.data.frame(cbind(data_norm, Locus = data$Locus))
+
+
+
+#samples to be flagged as low quality by slope
+sample_slopes <- data.frame(SampleID = character(), Slope = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each sample in unique_samples
+for (sample_id in unique_samples) {
+  # Subset the data for the current sample
+  sample <- data_norm[data_norm$SampleID == sample_id, ]
+  
+  # Sort and preprocess the data as needed
+  sample_slope <- as.data.frame(cbind(x = 1:length(sample$NORM_OutputPostprocessing), y = sort(sample$NORM_OutputPostprocessing, decreasing = TRUE)))
+  sample_slope <- sample_slope[-c((length(sample_slope$y) - 100):length(sample_slope$y)), ]  # Remove 100 least present amplicons
+  sample_slope <- sample_slope[-c(1:100), ]  # Remove 50 most and least present amplicons
+  
+  # Fit a linear regression model
+  model <- lm(y ~ x, data = sample_slope)
+  
+  # Extract the slope coefficient
+  slope <- coef(model)[[2]]
+  
+  # Add the sample ID and slope to the data frame
+  sample_slopes <- rbind(sample_slopes, data.frame(SampleID = sample_id, Slope = slope))
+}
+
+# Print the data frame with sample slopes
+hist(sample_slopes$Slope, breaks = 100)
+
+# Calculate quantiles
+q_up <- quantile(sample_slopes$Slope, probs = 0.99) #samples with many amplicons at 0
+q_down <- quantile(sample_slopes$Slope, probs = 0.01) #samples with overall low yield or 
+
+# Add lines for quantiles 99 and 1
+abline(v = q_down, col = "blue", lty = 2) 
+abline(v = q_up, col = "red", lty = 2) 
+
+sample_slopes <- sample_slopes[order(sample_slopes$Slope), ]
+
+bad_slope_samples <- sample_slopes[sample_slopes$Slope > q_up | sample_slopes$Slope < q_down,]$SampleID
+
 
 
 # add loci of interest column
@@ -84,16 +126,15 @@ thresholds_controls<- controls_nozero %>%
 # VISUALIZATION #
 
 #grab a sample
-unique_samples <- sort(unique(merged_table$SampleID))
+unique_samples <- sort(unique(data_norm$SampleID))
 
-# Calculate the median of OutputPostprocessing
+# Set thresholds
 up_threshold_q <- mean(thresholds_controls$q_up)
 down_threshold_q <- mean(thresholds_controls$q_down)
 up_threshold <- max(thresholds_controls$max)
 down_threshold <- min(thresholds_controls$min)
 
 
-# Initialize an empty list to store plots
 plot_list <- list()
 
 # Loop through each sample in unique_samples
@@ -107,34 +148,35 @@ for (xsample in unique_samples) {
     geom_hline(yintercept = up_threshold, linetype = "dashed", color = "red") +
     #geom_hline(yintercept = 2, linetype = "dashed", color = "red") +
     labs(x = "Locus", y = "Read Proportions", title = xsample) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5))
+    #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5))+
+    theme(axis.text.x = element_blank(),  # Remove amplicon names
+          axis.title.x = element_blank())
   
   # Add the plot to the list
   plot_list[[length(plot_list) + 1]] <- p
 }
 
 # Arrange plots in a grid
-grid <- ggarrange(plotlist = plot_list[[1:9]], nrow = 3, ncol =3 )
-
+grid <- ggarrange(plotlist = plot_list, nrow = round(sqrt(length(unique_samples)), ), ncol = round(sqrt(length(unique_samples)), ))
+ggsave("grid_of_plots.pdf", grid, width = 60, height = 50, dpi = 300, limitsize = FALSE)
 
 
 # ACTUAL RESULTS #
 
 # quantitative
 data_norm$CNV_result <- ifelse(data_norm$NORM_OutputPostprocessing > max(thresholds_controls$max), "CNV", "single")
-data_norm$QC<- ifelse(data_norm$SampleID %in% samples_below_median_100, "median_below_100", "good")
+data_norm$QC<- ifelse(data_norm$SampleID %in% samples_below_median_100, "bad", "good")
+data_norm$slope<- ifelse(data_norm$SampleID %in% bad_slope_samples, "bad", "good")
 
 #check results: good QC samples that have CNV for loci of interest
-results <- data_norm[!is.na(data_norm$loi)& data_norm$CNV_result == "CNV" & data_norm$QC == "good",]
+results <- data_norm[!is.na(data_norm$loi) & 
+                       data_norm$CNV_result == "CNV" & 
+                       data_norm$QC == "good" &
+                       data_norm$slope == "good",]
 
-length(unique(results$SampleID))
+print(paste0("There are ", length(unique(results$SampleID)), " samples with good QC that have CNV for loci of interest out of ", length(unique_samples)))
 
-# # quantitative
-# merged_table$CNV_result <- ifelse(merged_table$fold_change_probs > 2, "CNV", "single")
-# merged_table$QC<- ifelse(merged_table$SampleID %in% samples_below_median_100, "median_below_100", "good")
-# 
-# #check results: good QC samples that have CNV for loci of interest
-# results <- merged_table[!is.na(merged_table$loi)& merged_table$CNV_result == "CNV" & merged_table$QC == "good",]
+write.csv(results, "CNV_results.csv", row.names = F)
 
 
 
