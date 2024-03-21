@@ -1,9 +1,10 @@
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
+library(cowplot)
 
 
-data <- read.table("CNV_runs_sample_coverage/REACT2_NextSeq01_amplicon_coverage_DD2.txt", header = T)
+data <- read.table("CNV_runs_sample_coverage/HFS_NextSeq01_amplicon_coverage_DD2.txt", header = T)
 data <- data[,-3:-4]
 
 #remove neg controls and undetermined
@@ -17,14 +18,19 @@ co <- data %>%
 
 samples_below_median_100 <- co[co$median_read_count < 100,]$SampleID 
 
+data_filtered <- data[!data$SampleID %in% samples_below_median_100, ]
+
+
+#exclude one HRP3 amplicon wat too outlierish:
+data_filtered <- data_filtered[!data_filtered$Locus =="Pf3D7_13_v3-2816310-2816554-1B",]
 
 
 # calculate proportions of amplicons for each sample
-data_norm <- data %>% 
+data_norm <- data_filtered %>% 
   group_by(SampleID) %>%
   summarize(NORM_OutputPostprocessing = OutputPostprocessing / sum(OutputPostprocessing))
 
-data_norm <- as.data.frame(cbind(data_norm, Locus = data$Locus))
+data_norm <- as.data.frame(cbind(data_norm, Locus = data_filtered$Locus))
 
 unique_samples <- sort(unique(data_norm$SampleID))
 
@@ -60,6 +66,8 @@ hist(sample_slopes$Slope, breaks = 150)
 q_up <- quantile(sample_slopes$Slope, probs = 0.99) #samples with many amplicons at 0
 q_down <- quantile(sample_slopes$Slope, probs = 0.01) #samples with overall low yield or 
 
+sd(sample_slopes$Slope,)
+
 # Add lines for quantiles 99 and 1
 abline(v = q_down, col = "blue", lty = 2) 
 abline(v = q_up, col = "red", lty = 2) 
@@ -73,7 +81,7 @@ bad_slope_samples <- sample_slopes[sample_slopes$Slope > q_up | sample_slopes$Sl
 # add loci of interest column
 loci_of_interest <- readRDS("loci_of_interest.RDS")
 
-loi <- character(nrow(data))
+loi <- character(nrow(data_filtered))
 
 # Loop through each row of 'data'
 for (i in seq_len(nrow(data_norm))) {
@@ -152,12 +160,9 @@ for (xsample in unique_samples) {
   plot_list[[length(plot_list) + 1]] <- p
 }
 
-# Arrange plots in a grid
-grid <- ggarrange(plotlist = plot_list, nrow = round(sqrt(length(unique_samples)), ), ncol = round(sqrt(length(unique_samples)), ))
-ggsave("grid_of_plots.pdf", grid, width = 60, height = 50, dpi = 300, limitsize = FALSE)
-#combined_plot <- cowplot::plot_grid(plotlist = grid)
-#ggsave("grid_of_plots.pdf", plot = combined_plot, width = 60, height = 50, dpi = 300, limitsize = FALSE)
-
+# Assuming 'plot_list' contains a list of ggplot objects
+combined_plot <- plot_grid(plotlist = plot_list, nrow = round(sqrt(length(unique_samples))), ncol = round(sqrt(length(unique_samples))))
+ggsave("grid_of_plots.pdf", plot = combined_plot, width = 60, height = 50, dpi = 300, limitsize = FALSE)
 
 # ACTUAL RESULTS #
 
@@ -172,15 +177,18 @@ results <- data_norm[!is.na(data_norm$loi) &
                        data_norm$QC == "good" &
                        data_norm$slope == "good",]
 
-print(paste0("There are ", length(unique(results$SampleID)), " samples with good QC that have CNV for loci of interest out of ", length(unique_samples)))
-
+#remove single-copy controls (since i used the mean of the max value of single-copy controls, it's expected that some end up as false positives. it's ok)
+results <- results[!(grepl("(?i)3D7", results$SampleID) & !grepl("(?i)(Dd2|PM|HB3)", results$SampleID)), ]
 results
+
+print(paste0("There are ", length(unique(results$SampleID)), " samples with good QC that have CNV for loci of interest out of ", length(unique_samples)))
 
 write.csv(results, "CNV_results.csv", row.names = F)
 
 
 
 # NOTES
+#   one hrp2 amplicon often comes up as cnv whe it's probably not. remove it?
 # TEST THIS METHOD WITH ALL CONTROLS FROM ALL RUNS
 # BENCHMARK AGAINST estCNV
 # ASSESS FALSE POSITIVES USING quantile99 vs max
