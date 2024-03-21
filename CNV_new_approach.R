@@ -3,7 +3,7 @@ library(ggpubr)
 library(dplyr)
 
 
-data <- read.table("CNV_runs_sample_coverage/230623_M07977_0012_000000000-KJGHP_amplicon_coverage_DD2.txt", header = T)
+data <- read.table("CNV_runs_sample_coverage/BOH22_NextSeq01_amplicon_coverage_DD2_PM2-2.txt", header = T)
 data <- data[,-3:-4]
 
 #remove neg controls and undetermined
@@ -26,9 +26,11 @@ data_norm <- data %>%
 
 data_norm <- as.data.frame(cbind(data_norm, Locus = data$Locus))
 
+unique_samples <- sort(unique(data_norm$SampleID))
 
 
-#samples to be flagged as low quality by slope
+
+# samples to be flagged as low quality by slope
 sample_slopes <- data.frame(SampleID = character(), Slope = numeric(), stringsAsFactors = FALSE)
 
 # Loop through each sample in unique_samples
@@ -125,14 +127,12 @@ thresholds_controls<- controls_nozero %>%
 
 # VISUALIZATION #
 
-#grab a sample
-unique_samples <- sort(unique(data_norm$SampleID))
-
 # Set thresholds
 up_threshold_q <- mean(thresholds_controls$q_up)
 down_threshold_q <- mean(thresholds_controls$q_down)
 up_threshold <- max(thresholds_controls$max)
 down_threshold <- min(thresholds_controls$min)
+up_threshold_mean <- mean(thresholds_controls$max)
 
 
 plot_list <- list()
@@ -145,7 +145,7 @@ for (xsample in unique_samples) {
   # Create scatterplot
   p <- ggplot(sample, aes(x = reorder(Locus, -NORM_OutputPostprocessing), y = NORM_OutputPostprocessing, color = loi)) +
     geom_point(size=4, alpha =0.7) +
-    geom_hline(yintercept = up_threshold, linetype = "dashed", color = "red") +
+    geom_hline(yintercept = up_threshold_mean, linetype = "dashed", color = "red") +
     #geom_hline(yintercept = 2, linetype = "dashed", color = "red") +
     labs(x = "Locus", y = "Read Proportions", title = xsample) +
     #theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5))+
@@ -164,7 +164,7 @@ ggsave("grid_of_plots.pdf", grid, width = 60, height = 50, dpi = 300, limitsize 
 # ACTUAL RESULTS #
 
 # quantitative
-data_norm$CNV_result <- ifelse(data_norm$NORM_OutputPostprocessing > max(thresholds_controls$max), "CNV", "single")
+data_norm$CNV_result <- ifelse(data_norm$NORM_OutputPostprocessing > up_threshold_mean, "CNV", "single")
 data_norm$QC<- ifelse(data_norm$SampleID %in% samples_below_median_100, "bad", "good")
 data_norm$slope<- ifelse(data_norm$SampleID %in% bad_slope_samples, "bad", "good")
 
