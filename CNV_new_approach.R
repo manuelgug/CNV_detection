@@ -4,7 +4,7 @@ library(dplyr)
 library(cowplot)
 
 
-data <- read.table("CNV_runs_sample_coverage/SMC2_NextSeq01_amplicon_coverage_DD2.txt", header = T)
+data <- read.table("CNV_runs_sample_coverage/HFS_NextSeq01_amplicon_coverage_DD2.txt", header = T)
 data <- data[,-3:-4]
 
 #remove neg controls and undetermined
@@ -41,10 +41,16 @@ for (sample_id in unique_samples) {
   # Subset the data for the current sample
   sample <- data_norm[data_norm$SampleID == sample_id, ]
   
+  #exclude amps that were not amplified
+  sample <- sample[sample$NORM_OutputPostprocessing != 0,]
+  
   # Sort and preprocess the data as needed
   sample_slope <- as.data.frame(cbind(x = 1:length(sample$NORM_OutputPostprocessing), y = sort(sample$NORM_OutputPostprocessing, decreasing = TRUE)))
-  sample_slope <- sample_slope[-c((length(sample_slope$y) - 100):length(sample_slope$y)), ]  # Remove 100 least present amplicons
-  sample_slope <- sample_slope[-c(1:100), ]  # Remove 50 most present amplicons
+  #sample_slope <- sample_slope[-c((length(sample_slope$y) - 20):length(sample_slope$y)), ]  # Remove 100 least present amplicons
+  #sample_slope <- sample_slope[-c(1:50), ]  # Remove 50 most present amplicons
+  
+  # keep 50 least abundant amplicons (most informative)
+  sample_slope <- sample_slope[(length(sample_slope$y) - 29):length(sample_slope$y), ]
   
   # Fit a linear regression model
   model <- lm(y ~ x, data = sample_slope)
@@ -61,12 +67,12 @@ shapiro_test <- shapiro.test(sample_slopes$Slope)
 p_value <- shapiro_test$p.value #not significant means normal means solid run
 
 # Calculate quantiles
-q_up <- quantile(sample_slopes$Slope, probs = 0.99) #samples with many amplicons at 0 (MAYBE HERE'S NO NEED TO REMOVE THESE?)
+q_up <- quantile(sample_slopes$Slope, probs = 0.95) #samples with many amplicons at 0 (MAYBE HERE'S NO NEED TO REMOVE THESE?)
 q_down <- quantile(sample_slopes$Slope, probs = 0.05) #samples with overall low yield or 
 
 histogram_slopes <- ggplot(sample_slopes, aes(x = Slope)) +
   geom_histogram(bins = 150, fill = "skyblue", color = "skyblue", alpha = 0.7) +
-  labs(x = "Slope", y = "Frequency", title = "Histogram of Slope") +
+  labs(x = "Slope", y = "Frequency", title = "") +
   theme_minimal()+
   annotate("text", x = Inf, y = Inf, label = paste("Shapiro-Wilk p-value:", round(p_value, 4)), 
            hjust = 1, vjust = 1, size = 4)+
