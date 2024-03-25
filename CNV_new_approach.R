@@ -4,7 +4,7 @@ library(dplyr)
 library(cowplot)
 
 
-data <- read.table("CNV_runs_sample_coverage/MULB_NextSeq01_amplicon_coverage_DD2.txt", header = T)
+data <- read.table("CNV_runs_sample_coverage/SMC2_NextSeq01_amplicon_coverage_DD2.txt", header = T)
 data <- data[,-3:-4]
 
 #remove neg controls and undetermined
@@ -44,7 +44,7 @@ for (sample_id in unique_samples) {
   # Sort and preprocess the data as needed
   sample_slope <- as.data.frame(cbind(x = 1:length(sample$NORM_OutputPostprocessing), y = sort(sample$NORM_OutputPostprocessing, decreasing = TRUE)))
   sample_slope <- sample_slope[-c((length(sample_slope$y) - 100):length(sample_slope$y)), ]  # Remove 100 least present amplicons
-  sample_slope <- sample_slope[-c(1:100), ]  # Remove 50 most and least present amplicons
+  sample_slope <- sample_slope[-c(1:100), ]  # Remove 50 most present amplicons
   
   # Fit a linear regression model
   model <- lm(y ~ x, data = sample_slope)
@@ -56,15 +56,24 @@ for (sample_id in unique_samples) {
   sample_slopes <- rbind(sample_slopes, data.frame(SampleID = sample_id, Slope = slope))
 }
 
-hist(sample_slopes$Slope, breaks = 150)
+#test for normality
+shapiro_test <- shapiro.test(sample_slopes$Slope)
+p_value <- shapiro_test$p.value #not significant means normal means solid run
 
 # Calculate quantiles
 q_up <- quantile(sample_slopes$Slope, probs = 0.99) #samples with many amplicons at 0 (MAYBE HERE'S NO NEED TO REMOVE THESE?)
-q_down <- quantile(sample_slopes$Slope, probs = 0.01) #samples with overall low yield or 
+q_down <- quantile(sample_slopes$Slope, probs = 0.05) #samples with overall low yield or 
 
-# Add lines for quantiles 99 and 1
-abline(v = q_down, col = "red", lty = 2) 
-abline(v = q_up, col = "blue", lty = 2) 
+histogram_slopes <- ggplot(sample_slopes, aes(x = Slope)) +
+  geom_histogram(bins = 150, fill = "skyblue", color = "skyblue", alpha = 0.7) +
+  labs(x = "Slope", y = "Frequency", title = "Histogram of Slope") +
+  theme_minimal()+
+  annotate("text", x = Inf, y = Inf, label = paste("Shapiro-Wilk p-value:", round(p_value, 4)), 
+           hjust = 1, vjust = 1, size = 4)+
+  geom_vline(xintercept = q_down, col = "red", linetype = "dashed") +
+  geom_vline(xintercept = q_up, col = "blue", linetype = "dashed")
+
+histogram_slopes
 
 sample_slopes <- sample_slopes[order(sample_slopes$Slope), ]
 
