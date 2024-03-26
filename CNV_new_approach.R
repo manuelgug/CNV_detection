@@ -30,6 +30,13 @@ process_file <- function(coverage_file) {
   data <- read.table(coverage_file, header = T)
   data <- data[,-3:-4]
   
+  if (nrow(data[!grepl("(?i)Dd2|PM|HB3", data$SampleID) & grepl("(?i)3D7", data$SampleID), ]) == 0) {
+    
+    print(paste0("No single-copy controls for ", basename(coverage_file), ". Unable to look for CNV"))
+    return()  # Exit the function when there are no single-copy controls
+    
+  }
+  
   #remove neg controls and undetermined
   data <- data[!grepl("(?i)neg", data$SampleID), ]
   data <- data[!grepl("(?i)Undetermined", data$SampleID), ]
