@@ -2,7 +2,7 @@
 
 ![logo](https://github.com/manuelgug/CNV_detection/blob/main/seanbee_Logo_.png)
 
-__Sea'n'Bee__ identifies and flags potential CNV (Copy Number Variation) amplicons from the [mad4hatter](https://github.com/EPPIcenter/mad4hatter) panel for subsequent qPCR confirmation.
+__Sea'n'Bee__ flags potential CNV (Copy Number Variation) amplicons from the [mad4hatter](https://github.com/EPPIcenter/mad4hatter) panel for subsequent qPCR confirmation.
 
 ## Inputs
 1. Output amplicon coverage file from mad4hatter (*v0.1.8* was used, although coverage files should be pretty similar across versions).
@@ -13,7 +13,7 @@ __Sea'n'Bee__ identifies and flags potential CNV (Copy Number Variation) amplico
 2. Histogram of slopes with 2 sigma upper and lower thresholds.
 3. Plots of amplicon proportions for each sample.
 
-## Steps
+## Sea'n'Bee Workflow
 
 ### QC1: Sample filtering
 - Remove samples with a median read count below 100.
@@ -44,4 +44,5 @@ __Sea'n'Bee__ identifies and flags potential CNV (Copy Number Variation) amplico
 ## Example Outputs
 
 ![logo](https://github.com/manuelgug/CNV_detection/blob/main/dd2_gradient_.png)
-Plots depicting CNV detection across a gradient of 3D7-DD2 mixes. Red line is the CNV cutoff. Correct detection of CNV for MDR1 was possible down to 25% of DD2 prevalence in the mix. Quantitative results can be seen in the *example_output.csv* file.
+
+*CNV detection across a gradient of 3D7-DD2 mixes. Red line is the CNV cutoff. Correct detection of CNV for MDR1 was possible down to 25% of DD2 prevalence in the mix. Quantitative results can be seen in the *example_output.csv* file.*
