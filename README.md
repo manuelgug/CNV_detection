@@ -1,8 +1,8 @@
 # Sea'n'Bee 🌊🐝
 
-__Sea'n'Bee__ identifies and flags potential CNV (Copy Number Variation) amplicons from the [mad4hatter](https://github.com/EPPIcenter/mad4hatter) panel for subsequent qPCR confirmation.
-
 ![logo](https://github.com/manuelgug/CNV_detection/blob/main/seanbee_Logo_.png)
+
+__Sea'n'Bee__ identifies and flags potential CNV (Copy Number Variation) amplicons from the [mad4hatter](https://github.com/EPPIcenter/mad4hatter) panel for subsequent qPCR confirmation.
 
 ## Inputs
 1. Output amplicon coverage file from mad4hatter (*v0.1.8* was used, although coverage files should be pretty similar across versions).
