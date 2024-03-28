@@ -43,5 +43,5 @@ __Sea'n'Bee__ identifies and flags potential CNV (Copy Number Variation) amplico
 
 ## Example Outputs
 
-![logo](https://github.com/manuelgug/CNV_detection/blob/main/dd2_gradient.png)
+![logo](https://github.com/manuelgug/CNV_detection/blob/main/dd2_gradient_.png)
 Plots depicting CNV detection across a gradient of 3D7-DD2 mixes. Red line is the CNV cutoff. Correct detection of CNV for MDR1 was possible down to 25% of DD2 prevalence in the mix. Quantitative results can be seen in the *example_output.csv* file.
