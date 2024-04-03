@@ -62,6 +62,93 @@ process_file <- function(coverage_file) {
   unique_samples <- sort(unique(data_norm$SampleID))
   
   
+  ##### PCA ######
+  
+  library(tidyr)
+  library(ggrepel)
+  
+  # Pivot the data to have SampleID as rows and Locus as columns
+  data_wide <- pivot_wider(data_norm, names_from = Locus, values_from = NORM_OutputPostprocessing)
+  
+  data_for_pca <- data_wide[, -1]
+  
+  # Remove constant or zero variance columns
+  constant_cols <- sapply(data_for_pca, function(x) length(unique(x)) == 1)
+  zero_variance_cols <- apply(data_for_pca, 2, function(x) var(x) == 0)
+  cols_to_remove <- constant_cols | zero_variance_cols
+  data_for_pca_filtered <- data_for_pca[, !cols_to_remove]
+  
+  # remove loci of interest from this analysis
+  loci_of_interest <- readRDS("loci_of_interest.RDS")
+  loci_names <- unlist(loci_of_interest)
+  cols_to_keep <- setdiff(names(data_for_pca_filtered), loci_names)
+  data_for_pca_filtered <- data_for_pca_filtered[, cols_to_keep]
+  
+  
+  # #boxplot of amplicon proportions
+  data_for_pca_filtered_long <- gather(data_for_pca_filtered, key = "Locus", value = "Value")
+  
+  # Calculate the sd of each Locus
+  sd_ranking <- data_for_pca_filtered_long %>%
+    group_by(Locus) %>%
+    summarize(median_value = sd(Value, na.rm = TRUE))
+  
+  # Sort the levels of Locus based on the median values
+  data_for_pca_filtered_long$Locus <- factor(data_for_pca_filtered_long$Locus, levels = sd_ranking$Locus[order(sd_ranking$median_value)])
+  
+  # # Plot boxplots with sorted Locus levels
+  # ggplot(data_for_pca_filtered_long, aes(x = Locus, y = log(Value))) +
+  #   geom_boxplot() +
+  #   labs(title = "Boxplots of Locus Values",
+  #        x = "Locus",
+  #        y = "Value") +
+  #   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))  # Rotate x-axis labels for better readability
+  # 
+  
+  
+  # extract n amplicons with lowest sd:
+  low_sd_amps <- levels(data_for_pca_filtered_long$Locus)[1:125]
+  
+  data_for_pca_filtered <- data_for_pca_filtered[low_sd_amps]
+  
+  
+  # Perform PCA
+  pca_result <- prcomp(data_for_pca_filtered, scale. = TRUE)  # Remove SampleID column before PCA, then scale data if necessary
+  
+  # Extract PC scores
+  pc_scores <- pca_result$x
+  
+  # Convert PC scores to dataframe and add SampleID column
+  pc_scores_df <- as.data.frame(pc_scores)
+  pc_scores_df$SampleID <- data_wide$SampleID
+  
+  # Calculate Mahalanobis distance
+  mah_dist <- mahalanobis(pc_scores_df[, c("PC1", "PC2")], colMeans(pc_scores_df[, c("PC1", "PC2")]), cov(pc_scores_df[, c("PC1", "PC2")]))
+  alpha <- 0.05
+  mah_threshold <- qchisq(1 - alpha, df = 2)  # Chi-square threshold
+  
+  # Identify outliers
+  pc_scores_df <- pc_scores_df %>%
+    mutate(is_outlier = ifelse(mah_dist > mah_threshold, TRUE, FALSE))
+  
+  #isolate outliers for later
+  outlier_samples <- pc_scores_df[pc_scores_df$is_outlier,]$SampleID
+  
+  # Calculate percentage variance explained by each PC
+  variance_explained <- round(100 * pca_result$sdev^2 / sum(pca_result$sdev^2), 2)
+  
+  # Plot PCA results with outliers colored in red and percentage variance explained
+  ggplot(pc_scores_df, aes(x = PC1, y = PC2, color = is_outlier, label = SampleID)) +
+    geom_point() +
+    geom_text_repel(data = subset(pc_scores_df, is_outlier), aes(label = SampleID), size = 3, color = "red", segment.color = "red", segment.size = 0.5) + 
+    scale_color_manual(values = c("black", "red")) + 
+    labs(title = "PCA Plot of Amplicon Proportions",
+         x = paste0("PC1 (", variance_explained[1], "%)"),
+         y = paste0("PC2 (", variance_explained[2], "%)")) +
+    theme_minimal()
+  
+  
+  
   
   # samples to be flagged as low quality by slope
   sample_slopes <- data.frame(SampleID = character(), Slope = numeric(), stringsAsFactors = FALSE)
@@ -79,7 +166,7 @@ process_file <- function(coverage_file) {
     #sample_slope <- sample_slope[-c((length(sample_slope$y) - 20):length(sample_slope$y)), ]  # Remove 100 least present amplicons
     #sample_slope <- sample_slope[-c(1:50), ]  # Remove 50 most present amplicons
     
-    # keep 50 least abundant amplicons (most informative)
+    # keep 30 least abundant amplicons (most informative)
     sample_slope <- sample_slope[(length(sample_slope$y) - 29):length(sample_slope$y), ]
     
     # Fit a linear regression model
@@ -204,12 +291,14 @@ process_file <- function(coverage_file) {
   data_norm$CNV_result <- ifelse(data_norm$NORM_OutputPostprocessing > up_threshold, "CNV", "single")
   data_norm$QC<- ifelse(data_norm$SampleID %in% samples_below_median_100, "bad", "good")
   data_norm$slope<- ifelse(data_norm$SampleID %in% bad_slope_samples, "bad", "good")
+  data_norm$outliers<- ifelse(data_norm$SampleID %in% outlier_samples, "bad", "good")
   
   #check results: good QC samples that have CNV for loci of interest
   results <- data_norm[!is.na(data_norm$loi) & 
                          data_norm$CNV_result == "CNV" & 
                          data_norm$QC == "good" &
-                         data_norm$slope == "good",]
+                         data_norm$slope == "good" &
+                         data_norm$outliers == "good",]
   
   #remove single-copy controls (since i used the mean of the max value of single-copy controls, it's expected that some end up as false positives. it's ok)
   results <- results[!(grepl("(?i)3D7", results$SampleID) & !grepl("(?i)(Dd2|PM|HB3)", results$SampleID)), ]
@@ -258,10 +347,3 @@ process_file <- function(coverage_file) {
 for (file in files) {
   process_file(file)
 }
-
-# NOTES
-#   one hrp2 amplicon often comes up as cnv whe it's probably not. remove it?
-# esclude consistently high amplicons across samples from the run to avoid false positives? (does it affect true positives? how much?)
-# TEST THIS METHOD WITH ALL CONTROLS FROM ALL RUNS
-# BENCHMARK AGAINST estCNV
-# ASSESS FALSE POSITIVES USING quantile99 vs max
