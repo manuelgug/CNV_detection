@@ -28,17 +28,12 @@ files <- list.files(path = dir_path, pattern = "\\.txt$", full.names = TRUE)
 
 process_file <- function(coverage_file) {
   
+  cat("\n", "Processing", basename(coverage_file), "\n")
+  
   loci_of_interest <- readRDS("loci_of_interest.RDS")
   
   data <- read.table(coverage_file, header = T)
   data <- data[,-3:-4]
-  
-  if (nrow(data[!grepl("(?i)Dd2|PM|HB3", data$SampleID) & grepl("(?i)3D7", data$SampleID), ]) == 0) {
-    
-    print(paste0("No single-copy controls for ", basename(coverage_file), ". Unable to look for CNV"))
-    return()  # Exit the function when there are no single-copy controls
-    
-  }
   
   #remove neg controls and undetermined
   data <- data[!grepl("(?i)neg", data$SampleID), ]
@@ -53,7 +48,12 @@ process_file <- function(coverage_file) {
   
   data_filtered <- data[!data$SampleID %in% samples_below_median_100, ]
   
-  
+  if (nrow(data[!grepl("(?i)Dd2|PM|HB3", data_filtered$SampleID) & grepl("(?i)3D7", data_filtered$SampleID), ]) == 0) {
+    
+    print(paste0("No single-copy controls for ", basename(coverage_file), ". Unable to look for CNV"))
+    return()  # Exit the function when there are no single-copy controls
+    
+  }
   
   # calculate proportions of amplicons for each sample
   data_norm <- data_filtered %>% 
@@ -342,7 +342,7 @@ process_file <- function(coverage_file) {
   ggsave(paste0(file_path_sans_ext(basename(coverage_file)),"_grid_of_plots.pdf"), plot = combined_plot, width = 60, height = 50, dpi = 300, limitsize = FALSE)
 
   
-  cat("\n\n", "Processing complete for", basename(coverage_file), "\n\n")
+  cat("COMPLETE!", "\n")
 }
 
 
