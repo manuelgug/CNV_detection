@@ -27,6 +27,9 @@ dir_path <- "all_amplicon_coverage_files"
 files <- list.files(path = dir_path, pattern = "\\.txt$", full.names = TRUE)
 
 process_file <- function(coverage_file) {
+  
+  loci_of_interest <- readRDS("loci_of_interest.RDS")
+  
   data <- read.table(coverage_file, header = T)
   data <- data[,-3:-4]
   
@@ -79,7 +82,6 @@ process_file <- function(coverage_file) {
   data_for_pca_filtered <- data_for_pca[, !cols_to_remove]
   
   # remove loci of interest from this analysis
-  loci_of_interest <- readRDS("loci_of_interest.RDS")
   loci_names <- unlist(loci_of_interest)
   cols_to_keep <- setdiff(names(data_for_pca_filtered), loci_names)
   data_for_pca_filtered <- data_for_pca_filtered[, cols_to_keep]
@@ -138,7 +140,7 @@ process_file <- function(coverage_file) {
   variance_explained <- round(100 * pca_result$sdev^2 / sum(pca_result$sdev^2), 2)
   
   # Plot PCA results with outliers colored in red and percentage variance explained
-  ggplot(pc_scores_df, aes(x = PC1, y = PC2, color = is_outlier, label = SampleID)) +
+  pca_outlier <- ggplot(pc_scores_df, aes(x = PC1, y = PC2, color = is_outlier, label = SampleID)) +
     geom_point() +
     geom_text_repel(data = subset(pc_scores_df, is_outlier), aes(label = SampleID), size = 3, color = "red", segment.color = "red", segment.size = 0.5) + 
     scale_color_manual(values = c("black", "red")) + 
@@ -209,8 +211,6 @@ process_file <- function(coverage_file) {
   
   
   # add loci of interest column
-  loci_of_interest <- readRDS("loci_of_interest.RDS")
-  
   loi <- character(nrow(data_filtered))
   
   # Loop through each row of 'data'
@@ -337,8 +337,10 @@ process_file <- function(coverage_file) {
   combined_plot <- plot_grid(plotlist = plot_list, nrow = ceiling(sqrt(length(unique_samples))), ncol = ceiling(sqrt(length(unique_samples))))
   
   #output images
-  ggsave(paste0(file_path_sans_ext(basename(coverage_file)),"_grid_of_plots.pdf"), plot = combined_plot, width = 60, height = 50, dpi = 300, limitsize = FALSE)
   ggsave(paste0(file_path_sans_ext(basename(coverage_file)), "_histogram_slopes.pdf"), plot = histogram_slopes, width = 6, height = 4, dpi = 300, limitsize = FALSE)
+  ggsave(paste0(file_path_sans_ext(basename(coverage_file)), "_pca_outliers.pdf"), plot = pca_outlier, width = 10, height = 8, dpi = 300, limitsize = FALSE)
+  ggsave(paste0(file_path_sans_ext(basename(coverage_file)),"_grid_of_plots.pdf"), plot = combined_plot, width = 60, height = 50, dpi = 300, limitsize = FALSE)
+
   
   cat("\n\n", "Processing complete for", basename(coverage_file), "\n\n")
 }
