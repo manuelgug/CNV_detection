@@ -3,6 +3,8 @@ library(ggpubr)
 library(dplyr)
 library(cowplot)
 library(tools)
+library(tidyr)
+library(ggrepel)
 
 ###
 # parameters to tune:
@@ -66,9 +68,6 @@ process_file <- function(coverage_file) {
   
   
   ##### PCA ######
-  
-  library(tidyr)
-  library(ggrepel)
   
   # Pivot the data to have SampleID as rows and Locus as columns
   data_wide <- pivot_wider(data_norm, names_from = Locus, values_from = NORM_OutputPostprocessing)
@@ -339,7 +338,7 @@ process_file <- function(coverage_file) {
   #output images
   ggsave(paste0(file_path_sans_ext(basename(coverage_file)), "_histogram_slopes.pdf"), plot = histogram_slopes, width = 6, height = 4, dpi = 300, limitsize = FALSE)
   ggsave(paste0(file_path_sans_ext(basename(coverage_file)), "_pca_outliers.pdf"), plot = pca_outlier, width = 10, height = 8, dpi = 300, limitsize = FALSE)
-  ggsave(paste0(file_path_sans_ext(basename(coverage_file)),"_grid_of_plots.pdf"), plot = combined_plot, width = 60, height = 50, dpi = 300, limitsize = FALSE)
+  ggsave(paste0(file_path_sans_ext(basename(coverage_file)),"_grid_of_plots.pdf"), plot = combined_plot, width = 60, height = 50, dpi = 300, limitsize = FALSE) #comment for high speed benchmarking
 
   
   cat("COMPLETE!", "\n")
