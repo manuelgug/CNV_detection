@@ -53,9 +53,6 @@ controls <- controls[controls$expected_CNV != "",]
 controls <- controls[order(controls$run), ]
 
 
-# exclude shit controls (pending...)
-
-
 
 ######## RESULTS ########
 
@@ -108,6 +105,17 @@ merged_data <- merge(controls, results, by = c("SampleID", "run"), all =T)
 
 #deal with controls that have multiple CNV like PM
 merged_data <- merged_data[merged_data$expected_CNV == merged_data$observed_CNV | is.na(merged_data$observed_CNV),]
+
+#exclude runs with no good quality controls:
+runs_to_remove <- c("220727_VH00444", "230321_M07977_0008_000000000-KHJKK", "NMCP21_MiSeq01", "RETRO_ANC_run2", "RETRO_ANC_run3")
+merged_data <- merged_data[!merged_data$run %in% runs_to_remove,]
+
+# exclude shit controls according to LAB (pending...)
+shit_controls <- c("NDD2_D4_S202", "NDd2100Kc_S199", "NDd210kD_S255")
+merged_data <- merged_data[!merged_data$SampleID %in% shit_controls,]
+
+gradient_100 <- c("N3D7_Dd2_k13_100_S146") #no dd2 in this sample
+merged_data <- merged_data[!merged_data$SampleID %in% gradient_100,]
 
 # da numbas demselves
 total <- length(merged_data$expected_CNV)
