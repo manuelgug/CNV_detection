@@ -111,11 +111,16 @@ runs_to_remove <- c("220727_VH00444", "230321_M07977_0008_000000000-KHJKK", "NMC
 merged_data <- merged_data[!merged_data$run %in% runs_to_remove,]
 
 # exclude shit controls according to LAB (pending...)
-shit_controls <- c("NDD2_D4_S202", "NDd2100Kc_S199", "NDd210kD_S255")
+shit_controls <- c("NDD2_D4_S202", "NDD2_D3_S201", "NDD2_D5_S203", "NDd2100Kc_S199", "NDd210kD_S255")
 merged_data <- merged_data[!merged_data$SampleID %in% shit_controls,]
 
 gradient_100 <- c("N3D7_Dd2_k13_100_S146") #no dd2 in this sample
 merged_data <- merged_data[!merged_data$SampleID %in% gradient_100,]
+
+gradient_95plus <- c("3D7-Dd2-k13-95-5-100K_S65_L001", "3D7-Dd2-k13-95-5-100K_S85_L001", "3D7-Dd2-k13-95-5-100Ka_S49_L001", 
+                     "3D7-Dd2-k13-98-2-100K_S48_L001", "3D7-Dd2-k13-98-2-100K_S84_L001", "N3D7_Dd2_k13_95_S149", 
+                     "N3D7_Dd2_k13_98_S148", "N3D7_Dd2_k13_99_S147") # (most likely) non detectable dd2 in this samples, dd2 proportion is too low
+merged_data <- merged_data[!merged_data$SampleID %in% gradient_95plus,]
 
 # da numbas demselves
 total <- length(merged_data$expected_CNV)
