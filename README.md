@@ -10,8 +10,9 @@ __Sea'n'Bee__ flags potential CNV (Copy Number Variation) amplicons from the [ma
 
 ## Outputs
 1. CSV file containing amplicons of loci of interest flagged as CNV for each sample.
-2. Histogram of slopes with 2σ upper and lower thresholds.
-3. Plots of amplicon proportions for each sample.
+2. PCA of with labels for outlier samples 
+3. Histogram of slopes with 2σ upper and lower thresholds.
+4. Plots of amplicon proportions for each sample.
 
 ## Sea'n'Bee Workflow
 
@@ -21,13 +22,19 @@ __Sea'n'Bee__ flags potential CNV (Copy Number Variation) amplicons from the [ma
 ### Normalization
 - Calculate proportions of amplicons from read counts
 
-### QC2: Slope analysis
+### QC2: Outlier identification
+- Subset n least variable amplicons across all samples
+- Perform a PCA of amplicon proportions from samples
+- Calculate Mahalanobis distance of PC1 and PC2
+- Flag outliers given alpha = 0.05
+
+### QC3: Slope analysis
 - Sort amplicons by proportion and subset the 30 least abundant ones
 - Fit a linear regression model and calculate slope
 - Perform Shapiro-Wilk test on slope values to assess run quality
 - Remove samples with abnormal slopes (> and < 2σ from the mean slope)
 
-### QC3: Outlier amplicons removal
+### QC4: Outlier amplicons removal
 - Remove 5 most consistently abundant amplicons from the data
 - Exclude outlierish HRP3 and PM2 amplicons
 
