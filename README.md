@@ -26,7 +26,7 @@ __Sea'n'Bee__ flags potential CNV (Copy Number Variation) amplicons from the [ma
 - Subset n least variable amplicons across all samples
 - Perform a PCA of amplicon proportions from samples
 - Calculate Mahalanobis distance of PC1 and PC2
-- Flag outliers given alpha = 0.05
+- Flag outliers given alpha = 0.01
 
 ### QC3: Slope analysis
 - Sort amplicons by proportion and subset the 30 least abundant ones
