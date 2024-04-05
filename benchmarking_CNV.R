@@ -122,6 +122,11 @@ gradient_95plus <- c("3D7-Dd2-k13-95-5-100K_S65_L001", "3D7-Dd2-k13-95-5-100K_S8
                      "N3D7_Dd2_k13_98_S148", "N3D7_Dd2_k13_99_S147") # (most likely) non detectable dd2 in this samples, dd2 proportion is too low
 merged_data <- merged_data[!merged_data$SampleID %in% gradient_95plus,]
 
+#controls that didn't pass QC of 100 median reads:
+bad_qc <- c("NPM-4_S270", "NDD2_D7_S205", "NDD2_D6_S204") #no dd2 in this sample
+merged_data <- merged_data[!merged_data$SampleID %in% bad_qc,]
+
+
 # da numbas demselves
 total <- length(merged_data$expected_CNV)
 TP <- sum(!is.na(merged_data$expected_CNV == merged_data$observed_CNV)) # Calculate True Positives (TP)
