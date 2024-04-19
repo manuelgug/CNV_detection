@@ -1,7 +1,6 @@
 
 library(dplyr)
 
-
 ######## CONTROLS ########
 
 # Import each coverage file and store it in the list with basename as the name
@@ -93,38 +92,44 @@ results <- extracted_results %>%
 
 dim(results)
 
-
-
-######## BENCHMARKING ########
-
 # Merge expected and observed CNV for the CNV controls
 controls$run <- gsub("_RESULTS_v0\\.1\\.8_amplicon_coverage\\.txt", "", controls$run)
 results$run <- gsub("_RESULTS_v0.1.8_amplicon_coverage_CNV_results.csv", "", results$run)
+
+
+######## BENCHMARKING ########
 
 merged_data <- merge(controls, results, by = c("SampleID", "run"), all =T)
 
 #deal with controls that have multiple CNV like PM
 merged_data <- merged_data[merged_data$expected_CNV == merged_data$observed_CNV | is.na(merged_data$observed_CNV),]
 
-#exclude runs with no good quality controls:
-runs_to_remove <- c("220727_VH00444", "230321_M07977_0008_000000000-KHJKK", "NMCP21_MiSeq01", "RETRO_ANC_run2", "RETRO_ANC_run3")
-merged_data <- merged_data[!merged_data$run %in% runs_to_remove,]
+# #exclude runs with no good quality controls:
+# runs_to_remove <- c("220727_VH00444", "230321_M07977_0008_000000000-KHJKK", "NMCP21_MiSeq01", "RETRO_ANC_run2", "RETRO_ANC_run3")
+# merged_data <- merged_data[!merged_data$run %in% runs_to_remove,]
+# 
+# # exclude shit controls according to LAB (pending...)
+# shit_controls <- c("NDD2_D4_S202", "NDD2_D3_S201", "NDD2_D5_S203", "NDd2100Kc_S199", "NDd210kD_S255")
+# merged_data <- merged_data[!merged_data$SampleID %in% shit_controls,]
+# 
+# gradient_100 <- c("N3D7_Dd2_k13_100_S146") #no dd2 in this sample
+# merged_data <- merged_data[!merged_data$SampleID %in% gradient_100,]
+# 
+# 
+# #controls that didn't pass QC of 100 median reads:
+# bad_qc <- c("NPM-4_S270", "NDD2_D7_S205", "NDD2_D6_S204") #no dd2 in this sample
+# merged_data <- merged_data[!merged_data$SampleID %in% bad_qc,]
 
-# exclude shit controls according to LAB (pending...)
-shit_controls <- c("NDD2_D4_S202", "NDD2_D3_S201", "NDD2_D5_S203", "NDd2100Kc_S199", "NDd210kD_S255")
-merged_data <- merged_data[!merged_data$SampleID %in% shit_controls,]
+## filter out controls that are not cool (thanks carla)
+good_controls_Carla <- read.csv("controls_cgf.csv")
+good_controls_Carla <- good_controls_Carla[good_controls_Carla$QC == "cool",]
 
-gradient_100 <- c("N3D7_Dd2_k13_100_S146") #no dd2 in this sample
-merged_data <- merged_data[!merged_data$SampleID %in% gradient_100,]
+merged_data <- merged_data[merged_data$SampleID %in% good_controls_Carla$SampleID & merged_data$run %in% good_controls_Carla$run,]
 
-gradient_95plus <- c("3D7-Dd2-k13-95-5-100K_S65_L001", "3D7-Dd2-k13-95-5-100K_S85_L001", "3D7-Dd2-k13-95-5-100Ka_S49_L001", 
-                     "3D7-Dd2-k13-98-2-100K_S48_L001", "3D7-Dd2-k13-98-2-100K_S84_L001", "N3D7_Dd2_k13_95_S149", 
+gradient_95plus <- c("3D7-Dd2-k13-95-5-100K_S65_L001", "3D7-Dd2-k13-95-5-100K_S85_L001", "3D7-Dd2-k13-95-5-100Ka_S49_L001",
+                     "3D7-Dd2-k13-98-2-100K_S48_L001", "3D7-Dd2-k13-98-2-100K_S84_L001", "N3D7_Dd2_k13_95_S149",
                      "N3D7_Dd2_k13_98_S148", "N3D7_Dd2_k13_99_S147") # (most likely) non detectable dd2 in this samples, dd2 proportion is too low
 merged_data <- merged_data[!merged_data$SampleID %in% gradient_95plus,]
-
-#controls that didn't pass QC of 100 median reads:
-bad_qc <- c("NPM-4_S270", "NDD2_D7_S205", "NDD2_D6_S204") #no dd2 in this sample
-merged_data <- merged_data[!merged_data$SampleID %in% bad_qc,]
 
 
 # da numbas demselves
@@ -141,3 +146,4 @@ f1_score <- 2 * precision * recall / (precision + recall)
 print(paste("Precision:", precision))
 print(paste("Recall:", recall))
 print(paste("F1-score:", f1_score))
+
